@@ -7,8 +7,8 @@ app = Flask(__name__, static_folder='static')
 
 # Archivo donde se almacenaran las coordenadas
 DATA_FILE = 'ubicaciones.json'
-# Usamos una variable de entorno para la contraseña (Seguridad)
-ADMIN_PASSWORD = os.environ.get('APP_PASSWORD', 'MiClaveSegura123')
+# Usamos una variable de entorno para la contrasena (Seguridad)
+ADMIN_PASSWORD = os.environ.get('APP_PASSWORD', 'Oficina321-')
 
 def cargar_datos():
     if os.path.exists(DATA_FILE):
@@ -52,7 +52,7 @@ def guardar_ubicacion():
             }
             historial.append(nueva_pos)
             
-            # Mantenemos solo los últimos 50 puntos
+            # Mantenemos solo los ultimos 50 puntos
             if len(historial) > 50:
                 historial = historial[-50:]
                 
@@ -65,10 +65,10 @@ def guardar_ubicacion():
 
 @app.route('/api/historial')
 def api_historial():
-    # Nota: Podrías añadir la misma seguridad aquí si no quieres que sea público
+    # Nota: Podrías anadir la misma seguridad aqui si no quieres que sea publico
     return jsonify(cargar_datos())
 
 if __name__ == '__main__':
-    # En producción el puerto es gestionado por la plataforma
+    # En produccion el puerto es gestionado por la plataforma
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
