@@ -35,6 +35,11 @@ def guardar_datos(datos):
         json.dump(datos, f)
 
 # --- RUTAS WEB ---
+@app.route('/debug')
+def debug():
+    import os
+    return str(os.listdir('.'))
+
 @app.route('/')
 def index():
     return render_template('invitacion.html')
