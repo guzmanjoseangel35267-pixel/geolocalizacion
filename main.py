@@ -44,11 +44,8 @@ def debug():
 def index():
     return render_template('invitacion.html')
 
-@app.route('/admin/mapa')
+@app.route('/mapa')
 def mapa():
-    key = request.args.get('key')
-    if key != ADMIN_PASSWORD:
-        abort(403)
     return render_template('mapa_proyectos.html')
 
 # --- LOGICA DE UBICACION Y TELEGRAM ---
